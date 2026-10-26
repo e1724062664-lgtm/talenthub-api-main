@@ -134,3 +134,109 @@ describe('unknown routes', () => {
     expect(response.body.error).toBe('Ruta no encontrada');
   });
 });
+
+
+// ---------- Módulo candidates ----------
+
+// Datos válidos de ejemplo para candidatos (datos de prueba en español).
+const validCandidate = { name: 'Lucía Paredes', email: 'lucia.paredes@example.com', city: 'Cuenca', experienceYears: 4 };
+
+// Crea un candidato por HTTP y devuelve la respuesta (para obtener su id en las pruebas siguientes).
+const createCandidate = async () => request(app).post('/candidates').send(validCandidate);
+
+describe('GET /candidates', () => {
+  it('responds with 200 and an array', async () => {
+    const response = await request(app).get('/candidates');
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+});
+
+describe('POST /candidates', () => {
+  it('creates a candidate and responds with 201', async () => {
+    const response = await request(app).post('/candidates').send(validCandidate);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject(validCandidate);
+    expect(response.body.id).toBeDefined();
+  });
+
+  it('responds with 400 and the message of the broken rule', async () => {
+    const response = await request(app).post('/candidates').send({ ...validCandidate, email: 'correo-invalido' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('El correo no tiene un formato válido');
+  });
+});
+
+describe('GET /candidates/:id', () => {
+  it('responds with 200 and the candidate', async () => {
+    const created = await createCandidate();
+
+    const response = await request(app).get(`/candidates/${created.body.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(created.body);
+  });
+
+  it('responds with 404 when the candidate does not exist', async () => {
+    const response = await request(app).get('/candidates/9999');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('Candidato no encontrado');
+  });
+
+  it('responds with 400 when the id is not a number', async () => {
+    const response = await request(app).get('/candidates/abc');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('El identificador no es válido');
+  });
+});
+
+describe('PUT /candidates/:id', () => {
+  it('updates the candidate and responds with 200', async () => {
+    const created = await createCandidate();
+
+    const response = await request(app)
+      .put(`/candidates/${created.body.id}`)
+      .send({ ...validCandidate, experienceYears: 7 });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: created.body.id, ...validCandidate, experienceYears: 7 });
+  });
+
+  it('responds with 400 when the data is invalid', async () => {
+    const created = await createCandidate();
+
+    const response = await request(app)
+      .put(`/candidates/${created.body.id}`)
+      .send({ ...validCandidate, experienceYears: -2 });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('responds with 404 when the candidate does not exist', async () => {
+    const response = await request(app).put('/candidates/9999').send(validCandidate);
+
+    expect(response.status).toBe(404);
+  });
+});
+
+describe('DELETE /candidates/:id', () => {
+  it('deletes the candidate and responds with 204', async () => {
+    const created = await createCandidate();
+
+    const response = await request(app).delete(`/candidates/${created.body.id}`);
+
+    expect(response.status).toBe(204);
+    expect((await request(app).get(`/candidates/${created.body.id}`)).status).toBe(404);
+  });
+
+  it('responds with 404 when the candidate does not exist', async () => {
+    const response = await request(app).delete('/candidates/9999');
+
+    expect(response.status).toBe(404);
+  });
+});
